@@ -8,7 +8,7 @@ Extracts transaction details including dates, amounts, descriptions, and merchan
 import re
 import time
 from datetime import datetime
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -44,6 +44,32 @@ class OrderData:
         return f"Order {self.order_id}: {self.description} - {self.amount} on {self.date}"
 
 
+class ProductData:
+    """
+    Represents a single product within an Amazon order.
+    """
+
+    def __init__(self, date: str = "", product: str = "", quantity: int = 1, price: str = "", shipment_status: str = ""):
+        self.date = date
+        self.product = product
+        self.quantity = quantity
+        self.price = price
+        self.shipment_status = shipment_status
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert product data to dictionary format."""
+        return {
+            'date': self.date,
+            'product': self.product,
+            'quantity': self.quantity,
+            'price': self.price,
+            'shipment_status': self.shipment_status
+        }
+
+    def __str__(self) -> str:
+        return f"Product: {self.product} - Qty: {self.quantity} - Price: {self.price} - Status: {self.shipment_status} on {self.date}"
+
+
 class DataExtractor:
     """
     Extracts order data from Amazon order history pages.
@@ -66,7 +92,7 @@ class DataExtractor:
         self.config = config
         self.wait_timeout = config.get('element_wait_timeout', 15)
 
-    def extract_orders_by_years(self, start_year: Optional[int] = None, end_year: Optional[int] = None) -> List[OrderData]:
+    def extract_orders_by_years(self, start_year: Optional[int] = None, end_year: Optional[int] = None) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract order data for a range of years.
 
@@ -75,7 +101,7 @@ class DataExtractor:
             end_year: Ending year (None for current year)
 
         Returns:
-            List of OrderData objects
+            Tuple of (List of OrderData objects, List of ProductData objects)
         """
         # Set defaults to current year if not specified
         current_year = datetime.now().year
@@ -90,17 +116,20 @@ class DataExtractor:
 
         print(f"Starting extraction for years {start_year} to {end_year}")
         all_orders = []
+        all_products = []
 
         for year in range(start_year, end_year + 1):
             print(f"Processing year {year}...")
-            year_orders = self._extract_orders_for_year(year)
+            year_orders, year_products = self._extract_orders_for_year(year)
             all_orders.extend(year_orders)
-            print(f"Found {len(year_orders)} orders for year {year}")
+            all_products.extend(year_products)
+            print(f"Found {len(year_orders)} orders and {len(year_products)} products for year {year}")
 
         print(f"Total orders extracted: {len(all_orders)}")
-        return all_orders
+        print(f"Total products extracted: {len(all_products)}")
+        return all_orders, all_products
 
-    def _extract_orders_for_year(self, year: int) -> List[OrderData]:
+    def _extract_orders_for_year(self, year: int) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract all orders for a specific year.
 
@@ -108,7 +137,7 @@ class DataExtractor:
             year: Year to extract orders for
 
         Returns:
-            List of OrderData objects for the year
+            Tuple of (List of OrderData objects, List of ProductData objects) for the year
         """
         # Navigate to year-specific page
         year_url = f"https://www.amazon.it/your-orders/orders?timeFilter=year-{year}"
@@ -122,16 +151,18 @@ class DataExtractor:
 
         # Extract orders from all pages for this year
         year_orders = []
+        year_products = []
         page_num = 1
 
         while True:
             print(f"Processing page {page_num} for year {year}...")
 
-            # Extract orders from current page
-            page_orders = self._extract_orders_from_page()
+            # Extract orders and products from current page
+            page_orders, page_products = self._extract_orders_from_page()
             year_orders.extend(page_orders)
+            year_products.extend(page_products)
 
-            print(f"Found {len(page_orders)} orders on page {page_num}")
+            print(f"Found {len(page_orders)} orders and {len(page_products)} products on page {page_num}")
 
             # Try to go to next page
             if not self._go_to_next_page():
@@ -141,16 +172,17 @@ class DataExtractor:
             page_num += 1
             time.sleep(2)  # Brief pause between pages
 
-        return year_orders
+        return year_orders, year_products
 
-    def _extract_orders_from_page(self) -> List[OrderData]:
+    def _extract_orders_from_page(self) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract all orders from the current page.
 
         Returns:
-            List of OrderData objects from current page
+            Tuple of (List of OrderData objects, List of ProductData objects) from current page
         """
         orders = []
+        all_products = []
 
         try:
             # Store the current order history page URL
@@ -187,10 +219,12 @@ class DataExtractor:
                         EC.presence_of_element_located((By.TAG_NAME, "body"))
                     )
 
-                    # Extract order data
-                    order_data = self._extract_single_order()
+                    # Extract order data and products
+                    order_data, products = self._extract_single_order()
                     if order_data:
                         orders.append(order_data)
+                    # Add products to the global products list
+                    all_products.extend(products)
 
                 except Exception as e:
                     print(f"Error processing order: {e}")
@@ -207,14 +241,14 @@ class DataExtractor:
         except Exception as e:
             print(f"Error extracting orders from page: {e}")
 
-        return orders
+        return orders, all_products
 
-    def _extract_single_order(self) -> Optional[OrderData]:
+    def _extract_single_order(self) -> tuple[Optional[OrderData], List[ProductData]]:
         """
         Extract data from the current order details page.
 
         Returns:
-            OrderData object or None if extraction fails
+            Tuple of (OrderData object or None, List of ProductData objects)
         """
         try:
             order_data = OrderData()
@@ -235,17 +269,21 @@ class DataExtractor:
             order_data.description = self._extract_description()
             print(f"  Description: {order_data.description or 'Not found'}")
 
+            # Extract products
+            products = self._extract_products(order_data.date)
+            print(f"  Products found: {len(products)}")
+
             # Validate extracted data
             if self._validate_order_data(order_data):
                 print(f"  Order data valid: {order_data}")
-                return order_data
+                return order_data, products
             else:
                 print(f"  Invalid order data: {order_data}")
-                return None
+                return None, products
 
         except Exception as e:
             print(f"  Error extracting single order: {e}")
-            return None
+            return None, []
 
     def _extract_order_id(self) -> str:
         """Extract order ID from the current page."""
@@ -316,6 +354,91 @@ class DataExtractor:
 
         except Exception:
             return "Amazon Order"
+
+    def _extract_products(self, order_date: str) -> List[ProductData]:
+        """
+        Extract product details from the current order details page.
+
+        Args:
+            order_date: The date of the order to use for all products
+
+        Returns:
+            List of ProductData objects
+        """
+        products = []
+
+        try:
+            # Find all order cards (shipments)
+            order_cards = self.driver.find_elements(By.CSS_SELECTOR, "div[data-component='orderCard']")
+
+            for card in order_cards:
+                try:
+                    # Find shipments within the order card
+                    shipments = card.find_elements(By.CSS_SELECTOR, "div[data-component='shipments'] div.a-box")
+
+                    for shipment in shipments:
+                        try:
+                            # Find purchased items within the shipment
+                            purchased_items = shipment.find_elements(By.CSS_SELECTOR, "div[data-component='purchasedItems'] div.a-fixed-left-grid")
+
+                            for item in purchased_items:
+                                try:
+                                    # Extract product title
+                                    title_element = item.find_element(By.CSS_SELECTOR, "div[data-component='itemTitle'] a.a-link-normal")
+                                    product_title = title_element.text.strip()
+
+                                    # Extract quantity (default to 1 if not found)
+                                    quantity = 1
+                                    try:
+                                        qty_element = item.find_element(By.CSS_SELECTOR, "div.od-item-view-qty span")
+                                        quantity = int(qty_element.text.strip())
+                                    except NoSuchElementException:
+                                        pass  # Keep default quantity of 1
+
+                                    # Extract price
+                                    price_element = item.find_element(By.CSS_SELECTOR, "div[data-component='unitPrice'] .a-price .a-offscreen")
+                                    price = price_element.get_attribute("textContent").strip()
+
+                                    # Extract shipment status from the parent shipment
+                                    shipment_status = ""
+                                    try:
+                                        status_element = shipment.find_element(By.CSS_SELECTOR, "div[data-component='shipmentStatus'] h4.a-color-base.od-status-message")
+                                        shipment_status = status_element.text.strip()
+                                    except NoSuchElementException:
+                                        pass  # Keep empty if not found
+
+                                    # Create ProductData object
+                                    product = ProductData(
+                                        date=order_date,
+                                        product=product_title,
+                                        quantity=quantity,
+                                        price=price,
+                                        shipment_status=shipment_status
+                                    )
+                                    products.append(product)
+
+                                except NoSuchElementException:
+                                    continue  # Skip items that can't be parsed
+                                except Exception as e:
+                                    print(f"Error extracting product data: {e}")
+                                    continue
+
+                        except NoSuchElementException:
+                            continue  # No purchased items in this shipment
+                        except Exception as e:
+                            print(f"Error processing shipment: {e}")
+                            continue
+
+                except NoSuchElementException:
+                    continue  # No shipments in this card
+                except Exception as e:
+                    print(f"Error processing order card: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"Error extracting products: {e}")
+
+        return products
 
     def _validate_order_data(self, order_data: OrderData) -> bool:
         """

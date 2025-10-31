@@ -58,7 +58,8 @@ python main.py [options]
 
 Options:
   --config FILE       Configuration file path (default: config/settings.json)
-  --max-orders N      Maximum orders to extract (default: all)
+  --start-year YEAR   Start year for order extraction (default: current year)
+  --end-year YEAR     End year for order extraction (default: current year)
   --output FILE       Output CSV file path (default: auto-generated)
   --debug             Enable debug logging
   --no-session-save   Don't save browser session

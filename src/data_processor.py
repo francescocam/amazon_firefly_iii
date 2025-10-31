@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 import pandas as pd
 
-from .data_extractor import OrderData
+from .data_extractor import OrderData, ProductData
 from .config import Config
 
 
@@ -77,8 +77,42 @@ class DataProcessor:
         # Generate CSV file
         csv_path = self._generate_csv_file(firefly_data)
 
-        print(f"Generated CSV file: {csv_path}")
+        print(f"Generated orders CSV file: {csv_path}")
         print(f"Processed {len(firefly_data)} orders successfully")
+
+        return csv_path
+
+    def process_products(self, products: List[ProductData]) -> str:
+        """
+        Process product data and generate CSV file.
+
+        Args:
+            products: List of ProductData objects to process
+
+        Returns:
+            Path to generated CSV file
+        """
+        print(f"Processing {len(products)} products...")
+
+        # Convert products to CSV format
+        product_data = []
+        for product in products:
+            try:
+                product_row = self._convert_to_product_csv_format(product)
+                if product_row:
+                    product_data.append(product_row)
+            except Exception as e:
+                print(f"Error processing product: {e}")
+                continue
+
+        if not product_data:
+            raise ValueError("No valid products to process")
+
+        # Generate CSV file
+        csv_path = self._generate_product_csv_file(product_data)
+
+        print(f"Generated products CSV file: {csv_path}")
+        print(f"Processed {len(product_data)} products successfully")
 
         return csv_path
 
@@ -289,3 +323,56 @@ class DataProcessor:
         except Exception as e:
             print(f"Error validating CSV: {e}")
             return False
+
+    def _convert_to_product_csv_format(self, product: ProductData) -> Dict[str, Any]:
+        """
+        Convert ProductData to CSV format.
+
+        Args:
+            product: ProductData object to convert
+
+        Returns:
+            Dictionary with CSV fields
+        """
+        # Parse and format date
+        formatted_date = self._format_date(product.date)
+
+        # Clean product name
+        product_name = product.product.replace('\n', ' ').strip()
+        product_name = re.sub(r'\s+', ' ', product_name)  # Remove extra whitespace
+
+        # Format price (remove currency symbol for CSV)
+        price_clean = product.price.replace('€', '').strip()
+
+        return {
+            'date': formatted_date,
+            'product': product_name,
+            'quantity': product.quantity,
+            'price': price_clean,
+            'shipment_status': product.shipment_status
+        }
+
+    def _generate_product_csv_file(self, product_data: List[Dict[str, Any]]) -> str:
+        """
+        Generate CSV file for products.
+
+        Args:
+            product_data: List of dictionaries with product data
+
+        Returns:
+            Path to generated CSV file
+        """
+        # Create filename with timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"amazon_products_{timestamp}.csv"
+        filepath = os.path.join(self.output_dir, filename)
+
+        try:
+            # Use pandas for reliable CSV generation
+            df = pd.DataFrame(product_data)
+            df.to_csv(filepath, index=False, quoting=csv.QUOTE_ALL, encoding='utf-8')
+
+            return filepath
+
+        except Exception as e:
+            raise RuntimeError(f"Failed to generate products CSV file: {e}")

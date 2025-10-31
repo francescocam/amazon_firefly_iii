@@ -180,27 +180,33 @@ def main() -> int:
             data_extractor = DataExtractor(browser_controller.driver, config)
             start_year = config.get('start_year')
             end_year = config.get('end_year')
-            orders = data_extractor.extract_orders_by_years(start_year, end_year)
+            orders, products = data_extractor.extract_orders_by_years(start_year, end_year)
 
             if not orders:
                 logging.warning("No orders found to process")
                 browser_controller.close_browser()
                 return 1
 
-            # Process and generate CSV
+            # Process and generate CSVs
             data_processor = DataProcessor(config)
-            print(f"Processing {len(orders)} orders...")
-            csv_path = data_processor.process_orders(orders)
+            print(f"Processing {len(orders)} orders and {len(products)} products...")
 
-            # Validate CSV for Firefly III compatibility
-            print("Validating CSV for Firefly III compatibility...")
-            if data_processor.validate_csv_for_firefly(csv_path):
-                print(f"\nSUCCESS! CSV file generated: {csv_path}")
-                print("You can now import this file into your Firefly III instance.")
+            # Generate orders CSV
+            orders_csv_path = data_processor.process_orders(orders)
+
+            # Generate products CSV
+            products_csv_path = data_processor.process_products(products)
+
+            # Validate orders CSV for Firefly III compatibility
+            print("Validating orders CSV for Firefly III compatibility...")
+            if data_processor.validate_csv_for_firefly(orders_csv_path):
+                print(f"\nSUCCESS! Orders CSV file generated: {orders_csv_path}")
+                print(f"Products CSV file generated: {products_csv_path}")
+                print("You can now import these files into your Firefly III instance.")
                 success = True
             else:
-                print("\nCSV validation failed")
-                logging.error("Generated CSV failed validation")
+                print("\nOrders CSV validation failed")
+                logging.error("Generated orders CSV failed validation")
                 browser_controller.close_browser()
                 return 1
 
