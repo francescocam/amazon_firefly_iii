@@ -1,0 +1,2 @@
+- building a python app to get orders from amazon.it and produce a csv file to be imported in a self hosted instance of Firefly III
+- to avoid issues with login an CAPTCHAs we need to use a slave browser so that the user can login and, if required, perform MFA or solve CAPTCHAs

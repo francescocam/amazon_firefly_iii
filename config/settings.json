@@ -1,0 +1,11 @@
+{
+  "amazon_url": "https://www.amazon.it",
+  "order_history_url": "https://www.amazon.it/gp/your-account/order-history",
+  "output_dir": "output",
+  "session_file": "config/session.pkl",
+  "date_format": "%Y-%m-%d",
+  "csv_delimiter": ",",
+  "max_orders_per_page": 10,
+  "page_load_timeout": 30,
+  "element_wait_timeout": 10
+}
