@@ -92,13 +92,14 @@ class DataExtractor:
         self.config = config
         self.wait_timeout = config.get('element_wait_timeout', 15)
 
-    def extract_orders_by_years(self, start_year: Optional[int] = None, end_year: Optional[int] = None) -> tuple[List[OrderData], List[ProductData]]:
+    def extract_orders_by_years(self, start_year: Optional[int] = None, end_year: Optional[int] = None, max_orders: Optional[int] = None) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract order data for a range of years.
 
         Args:
             start_year: Starting year (None for current year)
             end_year: Ending year (None for current year)
+            max_orders: Maximum number of orders to extract (None for no limit)
 
         Returns:
             Tuple of (List of OrderData objects, List of ProductData objects)
@@ -115,12 +116,20 @@ class DataExtractor:
             start_year, end_year = end_year, start_year
 
         print(f"Starting extraction for years {start_year} to {end_year}")
+        if max_orders:
+            print(f"Limiting to maximum {max_orders} orders")
         all_orders = []
         all_products = []
 
         for year in range(start_year, end_year + 1):
-            print(f"Processing year {year}...")
-            year_orders, year_products = self._extract_orders_for_year(year)
+            # Check if we've already reached the maximum orders
+            if max_orders and len(all_orders) >= max_orders:
+                print(f"Reached maximum order limit ({max_orders}), stopping extraction")
+                break
+
+            remaining_orders = max_orders - len(all_orders) if max_orders else None
+            print(f"Processing year {year}... (remaining orders allowed: {remaining_orders or 'unlimited'})")
+            year_orders, year_products = self._extract_orders_for_year(year, remaining_orders)
             all_orders.extend(year_orders)
             all_products.extend(year_products)
             print(f"Found {len(year_orders)} orders and {len(year_products)} products for year {year}")
@@ -129,12 +138,13 @@ class DataExtractor:
         print(f"Total products extracted: {len(all_products)}")
         return all_orders, all_products
 
-    def _extract_orders_for_year(self, year: int) -> tuple[List[OrderData], List[ProductData]]:
+    def _extract_orders_for_year(self, year: int, max_orders: Optional[int] = None) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract all orders for a specific year.
 
         Args:
             year: Year to extract orders for
+            max_orders: Maximum number of orders to extract for this year (None for no limit)
 
         Returns:
             Tuple of (List of OrderData objects, List of ProductData objects) for the year
@@ -157,8 +167,16 @@ class DataExtractor:
         while True:
             print(f"Processing page {page_num} for year {year}...")
 
+            # Check if we've reached the maximum orders for this year
+            if max_orders and len(year_orders) >= max_orders:
+                print(f"Reached maximum order limit ({max_orders}) for year {year}")
+                break
+
+            # Calculate remaining orders for this page
+            remaining_for_page = max_orders - len(year_orders) if max_orders else None
+
             # Extract orders and products from current page
-            page_orders, page_products = self._extract_orders_from_page()
+            page_orders, page_products = self._extract_orders_from_page(remaining_for_page)
             year_orders.extend(page_orders)
             year_products.extend(page_products)
 
@@ -174,9 +192,12 @@ class DataExtractor:
 
         return year_orders, year_products
 
-    def _extract_orders_from_page(self) -> tuple[List[OrderData], List[ProductData]]:
+    def _extract_orders_from_page(self, max_orders: Optional[int] = None) -> tuple[List[OrderData], List[ProductData]]:
         """
         Extract all orders from the current page.
+
+        Args:
+            max_orders: Maximum number of orders to extract from this page (None for no limit)
 
         Returns:
             Tuple of (List of OrderData objects, List of ProductData objects) from current page
@@ -212,6 +233,11 @@ class DataExtractor:
 
             # Process each order URL
             for url in order_urls:
+                # Check if we've reached the maximum orders for this page
+                if max_orders and len(orders) >= max_orders:
+                    print(f"Reached maximum order limit ({max_orders}) for this page")
+                    break
+
                 try:
                     # Navigate to order details page
                     self.driver.get(url)

@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "args": "--start-year 2024 --end-year 2024"
+            "args": "--save-cache --start-year 2024 --end-year 2024 --max-orders 10"
         }
     ]
 }

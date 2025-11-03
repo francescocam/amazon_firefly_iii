@@ -72,6 +72,13 @@ def parse_arguments() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        '--max-orders',
+        type=int,
+        default=None,
+        help='Maximum number of orders to extract (default: no limit)'
+    )
+
+    parser.add_argument(
         '--output',
         type=str,
         default=None,
@@ -146,6 +153,8 @@ def main() -> int:
             config.set('start_year', args.start_year)
         if args.end_year:
             config.set('end_year', args.end_year)
+        if args.max_orders:
+            config.set('max_orders', args.max_orders)
 
         logging.info(f"Configuration loaded from {args.config}")
 
@@ -165,6 +174,7 @@ def main() -> int:
         # Display testing information
         print("DEBUG MODE ENABLED - Detailed logging active" if args.debug else "Standard logging mode")
         print(f"Year range: {config.get('start_year', 'current')} - {config.get('end_year', 'current')}")
+        print(f"Max orders: {config.get('max_orders', 'no limit')}")
         print(f"Session saving: {'Disabled' if args.no_session_save else 'Enabled'}")
         print(f"Cache mode: {'Use cache' if args.use_cache else 'Extract fresh' if not args.save_cache else 'Extract and save cache'}")
         print()
@@ -239,7 +249,8 @@ def main() -> int:
                 data_extractor = DataExtractor(browser_controller.driver, config)
                 start_year = config.get('start_year')
                 end_year = config.get('end_year')
-                orders, products = data_extractor.extract_orders_by_years(start_year, end_year)
+                max_orders = config.get('max_orders')
+                orders, products = data_extractor.extract_orders_by_years(start_year, end_year, max_orders)
 
                 if not orders:
                     logging.warning("No orders found to process")
@@ -313,6 +324,7 @@ OPTIONS:
     --config FILE       Configuration file path (default: config/settings.json)
     --start-year YEAR   Start year for order extraction (default: current year)
     --end-year YEAR     End year for order extraction (default: current year)
+    --max-orders NUM    Maximum number of orders to extract (default: no limit)
     --output FILE       Output CSV file path (default: auto-generated)
     --debug             Enable debug logging
     --no-session-save   Don't save browser session
