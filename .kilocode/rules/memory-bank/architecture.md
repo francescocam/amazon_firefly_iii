@@ -53,6 +53,15 @@ The Amazon Firefly III integration is a Python-based application that uses brows
   - Manage output file locations
   - Handle Firefly III import settings
 
+### 5. Cache Manager
+- **Purpose**: Handles serialization and deserialization of scraped data for debugging
+- **Technology**: JSON file storage with directory-based organization
+- **Responsibilities**:
+  - Save extracted order and product data to cache files
+  - Load cached data for re-processing without re-scraping
+  - Manage cache directory structure and metadata
+  - Provide cache listing and information utilities
+
 ## Data Flow
 
 1. **Initialization**: User launches app, browser opens in slave mode, attempts to restore previous session if available

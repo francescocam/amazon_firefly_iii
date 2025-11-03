@@ -7,6 +7,7 @@ A Python application that extracts order data from Amazon Italy and converts it 
 - **Secure Browser Automation**: Uses Selenium WebDriver with a slave browser approach to handle login and security challenges
 - **Session Persistence**: Saves browser session data to avoid repeated logins
 - **Data Extraction**: Automatically scrapes order information including dates, amounts, and descriptions
+- **Data Caching**: Cache scraped data for debugging and re-processing without re-scraping
 - **Firefly III Compatibility**: Generates CSV files in the correct format for Firefly III import
 - **Italian Language Support**: Handles Italian date formats and Amazon.it interface
 
@@ -63,6 +64,10 @@ Options:
   --output FILE       Output CSV file path (default: auto-generated)
   --debug             Enable debug logging
   --no-session-save   Don't save browser session
+  --use-cache NAME    Use cached data instead of scraping (specify cache name or "latest")
+  --save-cache        Save extracted data to cache for future use
+  --cache-dir DIR     Directory for cache files (default: cache)
+  --list-cache        List available cache directories and exit
 ```
 
 ### First Run Workflow
@@ -78,6 +83,26 @@ Options:
 - The application will attempt to restore your previous session
 - If session restoration fails, you'll need to log in again
 - Session data is automatically saved after successful processing
+
+### Caching for Debugging
+
+The application supports caching scraped data to enable debugging the data processor without re-scraping:
+
+```bash
+# Extract and save data to cache
+python main.py --save-cache
+
+# Use cached data for debugging
+python main.py --use-cache latest
+
+# List available cache directories
+python main.py --list-cache
+
+# Process different year range using cached data
+python main.py --use-cache latest --start-year 2023 --end-year 2024
+```
+
+Cache files are stored in JSON format in the `cache/` directory with timestamps.
 
 ## Configuration
 
@@ -117,20 +142,25 @@ Edit `config/settings.json` to customize behavior:
 ### Common Issues
 
 1. **Chrome Driver Issues**
-   - Ensure Chrome/Chromium is installed
-   - The webdriver-manager will automatically download the correct driver
+    - Ensure Chrome/Chromium is installed
+    - The webdriver-manager will automatically download the correct driver
 
 2. **Login Problems**
-   - Try clearing browser data: `rm config/session.pkl`
-   - Check Amazon.it for any account security measures
+    - Try clearing browser data: `rm config/session.pkl`
+    - Check Amazon.it for any account security measures
 
 3. **Data Extraction Failures**
-   - Amazon may have changed their page layout
-   - Enable debug mode: `python main.py --debug`
+    - Amazon may have changed their page layout
+    - Enable debug mode: `python main.py --debug`
 
-4. **CSV Import Issues**
-   - Verify the CSV format matches Firefly III requirements
-   - Check date formats and amount formatting
+4. **Cache Issues**
+    - Cache files not found: Check if cache directory exists and has data
+    - Invalid cache data: Delete corrupted cache and re-extract
+    - Permission issues: Ensure write access to cache directory
+
+5. **CSV Import Issues**
+    - Verify the CSV format matches Firefly III requirements
+    - Check date formats and amount formatting
 
 ### Debug Mode
 
@@ -149,6 +179,7 @@ amazon_firefly_iii/
 ├── src/
 │   ├── __init__.py
 │   ├── browser_controller.py    # Browser automation
+│   ├── cache_manager.py         # Data caching for debugging
 │   ├── data_extractor.py        # Order data extraction
 │   ├── data_processor.py        # CSV generation
 │   └── config.py               # Configuration management
@@ -157,6 +188,7 @@ amazon_firefly_iii/
 │   └── ...                     # Unit tests
 ├── config/
 │   └── settings.json           # Configuration file
+├── cache/                      # Cached scraped data (JSON)
 ├── output/                     # Generated CSV files
 ├── requirements.txt            # Python dependencies
 ├── main.py                     # Application entry point

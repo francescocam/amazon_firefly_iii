@@ -66,8 +66,8 @@ amazon_firefly_iii/
 │   └── test_data_processor.py
 ├── config/
 │   └── settings.json
-├── output/
-│   └── (generated CSV files)
+├── cache/                       # Cached scraped data (JSON)
+├── output/                      # Generated CSV files
 ├── requirements.txt
 ├── main.py
 └── README.md

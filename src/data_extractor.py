@@ -397,7 +397,7 @@ class DataExtractor:
 
                                     # Extract price
                                     price_element = item.find_element(By.CSS_SELECTOR, "div[data-component='unitPrice'] .a-price .a-offscreen")
-                                    price = price_element.get_attribute("textContent").strip()
+                                    price = price_element.get_attribute("textContent").strip().replace('€', '').strip()
 
                                     # Extract shipment status from the parent shipment
                                     shipment_status = ""
